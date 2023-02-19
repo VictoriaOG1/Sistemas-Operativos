@@ -1,86 +1,84 @@
-//Used for basic input/output stream
 #include <stdio.h>
-//Used for handling directory files
 #include <dirent.h>
-//For EXIT codes and error handling
-#include <errno.h>
 #include <stdlib.h>
-
-/*
-void _ls(const char *dir,int op_a,int op_l)
-{
-	//Here we will list the directory
-	struct dirent *d;
-	DIR *dh = opendir(dir);
-	if (!dh)
-	{
-		if (errno = ENOENT)
-		{
-			//If the directory is not found
-			perror("Directory doesn't exist");
-		}
-		else
-		{
-			//If the directory is not readable then throw error and exit
-			perror("Unable to read directory");
-		}
-		exit(EXIT_FAILURE);
-	}
-	//While the next entry is not readable we will print directory files
-	while ((d = readdir(dh)) != NULL)
-	{
-		//If hidden files are found we continue
-		if (!op_a && d->d_name[0] == '.')
-			continue;
-		printf("%s  ", d->d_name);
-		if(op_l) printf("\n");
-	}
-	if(!op_l)
-	printf("\n");
-}
-int main(int argc, const char *argv[])
-{
-	if (argc == 1)
-	{
-		_ls(".",0,0);
-	}
-	else if (argc == 2)
-	{
-		if (argv[1][0] == '-')
-		{
-			//Checking if option is passed
-			//Options supporting: a, l
-			int op_a = 0, op_l = 0;
-			char *p = (char*)(argv[1] + 1);
-			while(*p){
-				if(*p == 'a') op_a = 1;
-				else if(*p == 'l') op_l = 1;
-				else{
-					perror("Option not available");
-					exit(EXIT_FAILURE);
-				}
-				p++;
-			}
-			_ls(".",op_a,op_l);
-		}
-	}
-	return 0;
-}
-*/
 
 int main(int argc, char **argv)
 {
 	//Varibles
 	char command[10] = "ls";
 	char commandInput[10];
-	char path[200];
+
+	struct dirent *dent;
+	DIR *directory;
+	char *buffer[50];
 
 	if(argc == 2) //Si se ingresan dos parametros 
     {
-		
+
+		//Copiar
+		strcpy(commandInput, argv[1]);
+
+		//Si es el primer parametro no es igual a cp no se hace la copia
+        if(strcmp(commandInput, command)!=0) 
+        {
+            printf("Comando incorrecto\n");
+            return 1;
+        }
+
+		//Se obtiene el path del directorio en el cual se est´a trabajando
+		getcwd(buffer, sizeof(buffer));
+
+		//Se abre el directorio
+		directory = opendir(buffer);
+
+		if(directory == NULL)
+		{
+			printf("No se pudo abrir el directorio %s\n", buffer);
+			return -1;
+		}
+
+		//Leer archivos del directorio
+		while((dent = readdir(directory)) != NULL)
+		{
+			printf("[%s]\n",dent -> d_name);
+		}
+
+		closedir(directory);
+		return 0;
+
     }
 	else if(argc == 3) //Si se ingresan 3 parametros
 	{
+
+		//Copiar
+		strcpy(commandInput, argv[1]);
+		strcpy(buffer, argv[2]);
+
+		//Si es el primer parametro no es igual a cp no se hace la copia
+        if(strcmp(commandInput, command)!=0) 
+        {
+            printf("Comando incorrecto\n");
+            return 1;
+        }
+
+		//Se abre el directorio
+		directory = opendir(buffer);
+
+		if(directory == NULL)
+		{
+			printf("No se pudo abrir el directorio %s\n", buffer);
+			return -1;
+		}
+
+		//Leer archivos del directorio
+		while((dent = readdir(directory) != NULL))
+		{
+			printf("[%s]\n",dent -> d_name);
+		}
+
+		closedir(directory);
+
+		return 0;
 
 	}
     else
