@@ -7,10 +7,9 @@ int main(int argc, char **argv)
 	//Varibles
 	char command[10] = "ls";
 	char commandInput[10];
-
 	struct dirent *dent;
 	DIR *directory;
-	char *buffer[50];
+	char *path[50];
 
 	if(argc == 2) //Si se ingresan dos parametros 
     {
@@ -26,14 +25,14 @@ int main(int argc, char **argv)
         }
 
 		//Se obtiene el path del directorio en el cual se est´a trabajando
-		getcwd(buffer, sizeof(buffer));
+		getcwd(path, sizeof(path));
 
 		//Se abre el directorio
-		directory = opendir(buffer);
+		directory = opendir(path);
 
 		if(directory == NULL)
 		{
-			printf("No se pudo abrir el directorio %s\n", buffer);
+			printf("No se pudo abrir el directorio %s\n", path);
 			return -1;
 		}
 
@@ -52,7 +51,7 @@ int main(int argc, char **argv)
 
 		//Copiar
 		strcpy(commandInput, argv[1]);
-		strcpy(buffer, argv[2]);
+		strcpy(path, argv[2]);
 
 		//Si es el primer parametro no es igual a cp no se hace la copia
         if(strcmp(commandInput, command)!=0) 
@@ -62,16 +61,16 @@ int main(int argc, char **argv)
         }
 
 		//Se abre el directorio
-		directory = opendir(buffer);
+		directory = opendir(path);
 
 		if(directory == NULL)
 		{
-			printf("No se pudo abrir el directorio %s\n", buffer);
+			printf("No se pudo abrir el directorio %s\n", path);
 			return -1;
 		}
 
 		//Leer archivos del directorio
-		while((dent = readdir(directory) != NULL))
+		while((dent = readdir(directory)) != NULL)
 		{
 			printf("[%s]\n",dent -> d_name);
 		}
