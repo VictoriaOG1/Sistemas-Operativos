@@ -71,12 +71,12 @@ int main ()
                 if(pid5 > 0)
                 {
                     /***Proceso hijo 2***/
-                    //Esperar hijo 2
+                    //Esperar nieto 2
                     pidNieto2 = waitpid(pid5, &statusN2, 0);
                     if(WIFEXITED(statusN2))
                         printf("Proceso nieto 2 termino con pid %d y status %d \n", pidNieto2, WEXITSTATUS(statusN2));
 
-                    //Esperar hijo 1
+                    //Esperar nieto 1
                     pidNieto1 = waitpid(pid4, &statusN1, 0);
                     if(WIFEXITED(statusN1))
                         printf("Proceso nieto 1 termino con pid %d y status %d \n", pidNieto1, WEXITSTATUS(statusN1));
