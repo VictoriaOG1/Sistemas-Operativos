@@ -1,8 +1,9 @@
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 int main(int argc, char **argv)
 {
@@ -24,7 +25,7 @@ int main(int argc, char **argv)
     }
     else
     {
-        //Copia de los parametros a variables
+        //Copia los parametros ingresados a variables
         strcpy(commandInput, argv[1]);
         strcpy(nameReadFile, argv[2]);
         strcpy(nameWriteFile, argv[3]);
@@ -33,14 +34,14 @@ int main(int argc, char **argv)
         if(strcmp(commandInput, command)!=0) 
         {
             printf("Comando incorrecto\n");
-            return -1;
+            return 1;
         }
 
         //Si no se puede abrir el archivo de lectura
         if ((readFile = open(nameReadFile, O_RDONLY)) == -1)
         {
             printf("No se pudo abrir archivo %s para leer\n", nameReadFile);
-            return 3;
+            return 2;
         }
 
         //Si no se puede abrir el archivo de escritura
@@ -48,7 +49,7 @@ int main(int argc, char **argv)
         {
             printf("No se pudo abrir archivo %s para escritura\n", nameWriteFile);
             close(writeFile);
-            return 4;
+            return 3;
         }
         
         //Bucle para que ha medida que lee de un archivo lo escriba en el otro
