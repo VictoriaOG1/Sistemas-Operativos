@@ -1,6 +1,23 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+
+
+void getPermission(unsigned int m)
+{
+	putchar('\t');
+	putchar( m & S_IRUSR ? 'r' : '-' );
+    putchar( m & S_IWUSR ? 'w' : '-' );
+    putchar( m & S_IXUSR ? 'x' : '-' );
+    putchar( m & S_IRGRP ? 'r' : '-' );
+    putchar( m & S_IWGRP ? 'w' : '-' );
+    putchar( m & S_IXGRP ? 'x' : '-' );
+    putchar( m & S_IROTH ? 'r' : '-' );
+    putchar( m & S_IWOTH ? 'w' : '-' );
+    putchar( m & S_IXOTH ? 'x' : '-' );
+    putchar('\n');
+}
 
 int main(int argc, char **argv)
 {
@@ -10,6 +27,8 @@ int main(int argc, char **argv)
 	struct dirent *dent;
 	DIR *directory;
 	char *path[50];
+	struct stat statistics;
+	char header[200];
 
 	if(argc == 2) //Si se ingresan dos parametros 
     {
@@ -36,10 +55,13 @@ int main(int argc, char **argv)
 			return -1;
 		}
 
+		printf("Nombre\t\t\t\tTamaño(bytes)\tModo\n");
 		//Leer archivos del directorio
 		while((dent = readdir(directory)) != NULL)
 		{
-			printf("[%s]\n",dent -> d_name);
+			stat(dent->d_name, &statistics);
+
+			printf("%-30s\t%d\t\t%d \n", dent->d_name, statistics.st_size, statistics.st_mode);
 		}
 
 		closedir(directory);
@@ -69,16 +91,17 @@ int main(int argc, char **argv)
 			return -1;
 		}
 
+		printf("\nName\t\t\t\tSize(bytes)\tMode\tPermissions\n");
 		//Leer archivos del directorio
 		while((dent = readdir(directory)) != NULL)
 		{
-			printf("[%s]\n",dent -> d_name);
+			stat(dent->d_name, &statistics);
+			printf("%-30s\t%-12d\t%-6X", dent->d_name, statistics.st_size, statistics.st_mode);
+			getPermission(statistics.st_mode);
 		}
-
+		printf("\n");
 		closedir(directory);
-
 		return 0;
-
 	}
     else
     {
