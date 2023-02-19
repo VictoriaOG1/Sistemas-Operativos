@@ -6,55 +6,53 @@
 
 int main(int argc, char **argv)
 {
-    FILE * readFile;
-    FILE * writeFile;
-    char nameReadFile[201];
-    char nameWriteFile[201];
+    int num;
+    int readFile;
+    int writeFile;
+    char nameReadFile[200];
+    char nameWriteFile[200];
     char buffer[32];
-    size_t num;
+    char command[10] = "ls";
+    char commandInput[10];
 
-    if(argc>3 || argc<3)
+    if(argc>4 || argc<4)
     {
         printf("Número de argumentos no válido\n");
         return -1;
     }
     else
     {
-        strcpy(nameReadFile, argv[1]);
-        strcpy(nameWriteFile, argv[2]);
+        strcpy(commandInput, argv[1]);
+        strcpy(nameReadFile, argv[2]);
+        strcpy(nameWriteFile, argv[3]);
 
-        if ( (readFile = fopen(nameReadFile, "r")) == NULL )
+        if(strcmp(commandInput, command)!=0)
+        {
+            printf("Comando incorrecto\n");
+            return -1;
+        }
+
+        if ((readFile = open(nameReadFile, O_RDONLY)) == -1)
         {
             printf("No se pudo abrir archivo %s para leer\n", nameReadFile);
             return 3;
         }
 
-        if ( (writeFile = fopen(nameWriteFile, "w")) == NULL )
+        if ((writeFile = open(nameWriteFile, O_WRONLY|O_CREAT|O_TRUNC, 0700)) == -1)
         {
             printf("No se pudo abrir archivo %s para escritura\n", nameWriteFile);
             fclose(writeFile);
             return 4;
         }
         
-        while((num = fread(buffer, sizeof(char), 32, readFile) ) > 0 )
+        while ((num = read(readFile, &buffer, sizeof(char))) > 0)
         {
-            fwrite(buffer, sizeof(char), num, writeFile);
-
-            if (ferror(readFile) || ferror(writeFile))
-            {
-                printf("Error en la copia");
-                fclose(readFile);
-                fclose(writeFile);
-                return 6;
-            }
+            write(writeFile, &buffer, num);
         }
 
-        fclose(readFile);
-        fclose(writeFile);
-        printf("Archivo '%s' se copio correctamente al archivo '%s'\n", nameReadFile,
-        nameWriteFile);
+        close(readFile);
+        close(writeFile);
+        printf("Archivo '%s' se copio correctamente al archivo '%s'\n", nameReadFile, nameWriteFile);
         return 0;
     }
-
-
 }
