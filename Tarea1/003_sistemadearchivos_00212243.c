@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
+/*
 void _ls(const char *dir,int op_a,int op_l)
 {
 	//Here we will list the directory
@@ -64,4 +65,27 @@ int main(int argc, const char *argv[])
 		}
 	}
 	return 0;
+}
+*/
+
+int main(int argc, char **argv)
+{
+	//Varibles
+	char command[10] = "ls";
+	char commandInput[10];
+	char path[200];
+
+	if(argc == 2) //Si se ingresan dos parametros 
+    {
+		
+    }
+	else if(argc == 3) //Si se ingresan 3 parametros
+	{
+
+	}
+    else
+    {
+		printf("Numero de argumentos no válido\n");
+        return -1;
+	}
 }
