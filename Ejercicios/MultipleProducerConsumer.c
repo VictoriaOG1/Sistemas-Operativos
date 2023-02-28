@@ -44,7 +44,7 @@ int main()
         pthread_create(&hilos[id_hilo], NULL, consumer, &array_id[id_hilo]);
     }
 
-    //
+    // Espera a que terminen todos los hilos
     for (int i = 0; i < CONTADOR_THREAD; i++)
     {
         pthread_join(hilos[i], NULL);
@@ -59,27 +59,30 @@ static inline int setQueue(volatile int *index)
     int oldHead, newHead; // variables para setear el valor anterior y nuevo del indice dentro de la queue
     do
     {
-        oldHead = *index; // Asignación desde el puntero actual de la posición del hilo que estaba en ejecución
+        oldHead = *index;                      // Asignación desde el puntero actual de la posición del hilo que estaba en ejecución
         newHead = (oldHead + 1) % TAMANO_COLA; // Asignación de la nueva cabeza de la queue
         // Verifica que el valor actual de la cabeza y la anterior no sean iguales para continuar con la queue
     } while (!__sync_bool_compare_and_swap(index, oldHead, newHead));
     return oldHead; // return la cabeza que se va a usar
 }
 
-static void *producer(void *data) 
+static void *producer(void *data)
 {
+    // Setea el id del hilo
     int idThread = *(int *)data;
     printf("[%d] producing\n", idThread);
 
+    // produce un numero fijo de datos y los coloca en la cola
     for (int i = 0; i < CONTADOR_TRABAJO; i++)
     {
         float value = i;
 
+        // Espera a que haya espacio para colocar un dato
         while (1)
         {
             pthread_mutex_lock(&lock_cabeza); /* solicita el acceso exclusivo al buffer*/
 
-            if ((cabeza_cola + 1) % TAMANO_COLA != final_cola) // Verifica que ya no haya mas threads
+            if ((cabeza_cola + 1) % TAMANO_COLA != final_cola) // Verifica si hay espacio en el buffer
                 break;
 
             pthread_mutex_unlock(&lock_cabeza); /* Libera el acceso al buffer*/
@@ -101,25 +104,25 @@ static void *consumer(void *data)
     int idThread = *(int *)data;
     printf("[%d] consuming\n", idThread);
 
-    //Realizar trabajos segun el numero CONTADOR_TRABAJO 
+    // Realizar trabajos segun el numero CONTADOR_TRABAJO
     for (int i = 0; i < CONTADOR_TRABAJO; i++)
     {
-        while (1) //Esperar a que se agregue un elemento nuevo a la cola
+        while (1) // Esperar a que se agregue un elemento nuevo a la cola
         {
-            pthread_mutex_lock(&lock_final); //El hilo hace lock 
+            pthread_mutex_lock(&lock_final); // El hilo hace lock
 
-            if (final_cola != cabeza_cola) //Si hay un elemento en la cola sale del loop y el lock se mantiene
+            if (final_cola != cabeza_cola) // Si hay un elemento en la cola sale del loop y el lock se mantiene
                 break;
 
-            pthread_mutex_unlock(&lock_final); //Si no hay elementos libera el lock 
-            sleep(0); //Duerme un poco para volver a intentar 
+            pthread_mutex_unlock(&lock_final); // Si no hay elementos libera el lock
+            sleep(0);                          // Duerme un poco para volver a intentar
         }
 
-        int index = setQueue(&final_cola); //Para obtener el índice del siguiente elemento en la cola
-        float data = cola[index]; //Se guarda el elemento 
-        pthread_mutex_unlock(&lock_final); //Se libera el lock 
+        int index = setQueue(&final_cola); // Para obtener el índice del siguiente elemento en la cola
+        float data = cola[index];          // Se guarda el elemento
+        pthread_mutex_unlock(&lock_final); // Se libera el lock
     }
 
-    printf("[%d] finished consuming \n", idThread); //Se imprime que ya termino de consumir 
+    printf("[%d] finished consuming \n", idThread); // Se imprime que ya termino de consumir
     return NULL;
 }
