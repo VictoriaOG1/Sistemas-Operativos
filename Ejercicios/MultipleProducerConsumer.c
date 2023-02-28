@@ -1,47 +1,52 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define PRODUCER_COUNT 4
-#define CONSUMER_COUNT 4
-#define THREAD_COUNT (PRODUCER_COUNT + CONSUMER_COUNT)
-#define WORK_ITERS 10000
-#define WORK_COUNT 10000
+#define CONTADOR_PRODUCTOR 4  //Numero de hilos productores
+#define CONTADOR_CONSUMIDOR 4 //Numero de hilos consumiedores 
+#define CONTADOR_THREAD (CONTADOR_PRODUCTOR + CONTADOR_CONSUMIDOR) //Numero total de hilos
+#define CONTADOR_TRABAJO 1000 //Cantidad de trabajo
 
-#define QUEUE_SIZE 64
+#define TAMANO_COLA 64 //Tamano de la cola 
 
-// Let's go the easy way and keep a gap between head and tail when full.
-static pthread_mutex_t queue_head_lock = PTHREAD_MUTEX_INITIALIZER;
-static volatile int queue_head = 1;
+//Mutex para la cabeza de la cola
+static pthread_mutex_t lock_cabeza = PTHREAD_MUTEX_INITIALIZER; 
+//Posicion donde esta la cabeza de la cola
+static volatile int cabeza_cola = 1;
 
-static pthread_mutex_t queue_tail_lock = PTHREAD_MUTEX_INITIALIZER;
-static volatile int queue_tail = 0;
+//Mutex para el final de la cola
+static pthread_mutex_t lock_final = PTHREAD_MUTEX_INITIALIZER;
+//Posicion donde esta el final de la cola 
+static volatile int final_cola = 0;
 
-static float queue[QUEUE_SIZE];
+static float cola[TAMANO_COLA]; //Se crea la cola como array
 
-static void *producer(void *data_ptr);
-static void *consumer(void *data_ptr);
+//Declaracion de las funciones productor y consumidor 
+static void *producer(void *data);
+static void *consumer(void *data);
 
 int main()
 {
-    pthread_t threads[THREAD_COUNT];
-    int data[THREAD_COUNT];
+    pthread_t hilos[CONTADOR_THREAD]; //Array hilos 
+    int array_id[CONTADOR_THREAD]; //Array para guardar los id de los hilos
+    int id_hilo; //Para los loops
 
-    int thread_id;
-    for(thread_id = 0; thread_id < PRODUCER_COUNT; thread_id++)
+    //Creacion de hilos productores y se almacenan sus ids
+    for(id_hilo = 0; id_hilo < CONTADOR_PRODUCTOR; id_hilo++)
     {
-        data[thread_id] = thread_id;
-        pthread_create(&threads[thread_id], NULL, producer, &data[thread_id]);
+        array_id[id_hilo] = id_hilo;
+        pthread_create(&hilos[id_hilo], NULL, producer, &array_id[id_hilo]);
     }
 
-    for(; thread_id < THREAD_COUNT; thread_id++)
+    //Creacion de hilos consumidores y se almacenan sus ids
+    for(; id_hilo < CONTADOR_THREAD; id_hilo++)
     {
-        data[thread_id] = thread_id;
-        pthread_create(&threads[thread_id], NULL, consumer, &data[thread_id]);
+        array_id[id_hilo] = id_hilo;
+        pthread_create(&hilos[id_hilo], NULL, consumer, &array_id[id_hilo]);
     }
 
-    for(int i = 0; i < THREAD_COUNT; i++)
+    for(int i = 0; i < CONTADOR_THREAD; i++)
     {
-        pthread_join(threads[i], NULL);
+        pthread_join(hilos[i], NULL);
     }
 
     return 0;
@@ -53,43 +58,34 @@ static inline int advance(volatile int *idx)
     do
     {
         old = *idx;
-        new = (old + 1) % QUEUE_SIZE;
+        new = (old + 1) % TAMANO_COLA;
     } while(!__sync_bool_compare_and_swap(idx, old, new));
     return old;
 }
 
-static inline float do_work(float in)
+static void *producer(void *data)
 {
-    for(int i = 0; i < WORK_ITERS; i++)
-    {
-        in += in / 2.0f;
-    }
-    return in;
-}
-
-static void *producer(void *data_ptr)
-{
-    int thread_id = *(int *)data_ptr;
+    int thread_id = *(int *)data;
     printf("[%d] producing\n", thread_id);
 
-    for(int i = 0; i < WORK_COUNT; i++)
+    for(int i = 0; i < CONTADOR_TRABAJO; i++)
     {
-        float value = do_work(i);
+        float value = i;
 
         while(1)
         {
-            pthread_mutex_lock(&queue_head_lock);
+            pthread_mutex_lock(&lock_cabeza);
 
-            if((queue_head + 1) % QUEUE_SIZE != queue_tail)
+            if((cabeza_cola + 1) % TAMANO_COLA != final_cola)
                 break;
 
-            pthread_mutex_unlock(&queue_head_lock);
+            pthread_mutex_unlock(&lock_cabeza);
             sleep(0);
         }
 
-        queue[queue_head] = value;
-        advance(&queue_head);
-        pthread_mutex_unlock(&queue_head_lock);
+        cola[cabeza_cola] = value;
+        advance(&cabeza_cola);
+        pthread_mutex_unlock(&lock_cabeza);
     }
 
     printf("[%d] finished producing\n", thread_id);
@@ -97,35 +93,30 @@ static void *producer(void *data_ptr)
     return NULL;
 }
 
-static void *consumer(void *data_ptr)
+static void *consumer(void *data)
 {
-    int thread_id = *(int *)data_ptr;
+    int thread_id = *(int *)data;
     printf("[%d] consuming\n", thread_id);
 
-    float result;
-
     // instead of poison pill let's just consume exactly what is produced.
-    for(int i = 0; i < WORK_COUNT; i++)
+    for(int i = 0; i < CONTADOR_TRABAJO; i++)
     {
         while(1)
         {
-            pthread_mutex_lock(&queue_tail_lock);
+            pthread_mutex_lock(&lock_final);
 
-            if(queue_tail != queue_head)
+            if(final_cola != cabeza_cola)
                 break;
 
-            pthread_mutex_unlock(&queue_tail_lock);
+            pthread_mutex_unlock(&lock_final);
             sleep(0);
         }
 
-        int idx = advance(&queue_tail);
-        float data = queue[idx];
-        pthread_mutex_unlock(&queue_tail_lock);
-
-        result += do_work(data);
-        //printf("[%d] consumed %d\n", thread_id, data);
+        int idx = advance(&final_cola);
+        float data = cola[idx];
+        pthread_mutex_unlock(&lock_final);
     }
 
-    printf("[%d] finished consuming result=%f\n", thread_id, result);
+    printf("[%d] finished consuming \n", thread_id);
     return NULL;
 }
