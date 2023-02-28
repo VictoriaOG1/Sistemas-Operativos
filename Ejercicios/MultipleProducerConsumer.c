@@ -44,6 +44,7 @@ int main()
         pthread_create(&hilos[id_hilo], NULL, consumer, &array_id[id_hilo]);
     }
 
+    //
     for (int i = 0; i < CONTADOR_THREAD; i++)
     {
         pthread_join(hilos[i], NULL);
@@ -58,14 +59,14 @@ static inline int setQueue(volatile int *index)
     int oldHead, newHead; // variables para setear el valor anterior y nuevo del indice dentro de la queue
     do
     {
-        oldHead = *index;                      // Asignación desde el puntero actual de la posición del hilo que estaba en ejecución
+        oldHead = *index; // Asignación desde el puntero actual de la posición del hilo que estaba en ejecución
         newHead = (oldHead + 1) % TAMANO_COLA; // Asignación de la nueva cabeza de la queue
         // Verifica que el valor actual de la cabeza y la anterior no sean iguales para continuar con la queue
     } while (!__sync_bool_compare_and_swap(index, oldHead, newHead));
     return oldHead; // return la cabeza que se va a usar
 }
 
-static void *producer(void *data) /* produce data */
+static void *producer(void *data) 
 {
     int idThread = *(int *)data;
     printf("[%d] producing\n", idThread);
@@ -100,25 +101,25 @@ static void *consumer(void *data)
     int idThread = *(int *)data;
     printf("[%d] consuming\n", idThread);
 
-    // instead of poison pill let's just consume exactly what is produced.
+    //Realizar trabajos segun el numero CONTADOR_TRABAJO 
     for (int i = 0; i < CONTADOR_TRABAJO; i++)
     {
-        while (1)
+        while (1) //Esperar a que se agregue un elemento nuevo a la cola
         {
-            pthread_mutex_lock(&lock_final);
+            pthread_mutex_lock(&lock_final); //El hilo hace lock 
 
-            if (final_cola != cabeza_cola)
+            if (final_cola != cabeza_cola) //Si hay un elemento en la cola sale del loop y el lock se mantiene
                 break;
 
-            pthread_mutex_unlock(&lock_final);
-            sleep(0);
+            pthread_mutex_unlock(&lock_final); //Si no hay elementos libera el lock 
+            sleep(0); //Duerme un poco para volver a intentar 
         }
 
-        int index = setQueue(&final_cola);
-        float data = cola[index];
-        pthread_mutex_unlock(&lock_final);
+        int index = setQueue(&final_cola); //Para obtener el índice del siguiente elemento en la cola
+        float data = cola[index]; //Se guarda el elemento 
+        pthread_mutex_unlock(&lock_final); //Se libera el lock 
     }
 
-    printf("[%d] finished consuming \n", idThread);
+    printf("[%d] finished consuming \n", idThread); //Se imprime que ya termino de consumir 
     return NULL;
 }
