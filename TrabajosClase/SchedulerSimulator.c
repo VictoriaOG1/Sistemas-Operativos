@@ -1,16 +1,20 @@
 #include <stdio.h>
 
-// Estructura para representar un Process
+// Estructura de nuestro proceso
 struct Process
 {
     int id;
     int arrivalTime;
-    int brustTime;
-    int state;
+    int burstTime;
+    int state; //0 si no inicia, 1 si ya inició y -1 si está bloqueado
     int responseTime;
     int waitingTime;
     int exitTime;
+    int serviceTime;
+    int remainingTime;
+    int interruptLength[];
 };
+
 
 void roundRobin(struct Process pro[], int n, int quantum)
 {
@@ -22,7 +26,7 @@ void roundRobin(struct Process pro[], int n, int quantum)
     // Inicializa el tiempo restante del proceso como su tiempo de ejecución.
     for (i = 0; i < n; i++)
     {
-        remainingTime[i] = pro[i].brustTime;
+        pro[i].remainingTime = pro[i].burstTime;
     }
 
     // Ejecuta el Round Robin hasta que todos los procesos hayan terminado.
@@ -34,7 +38,7 @@ void roundRobin(struct Process pro[], int n, int quantum)
         for (i = 0; i < n; i++)
         {
             // Si el proceso ya se completó, salta a la siguiente iteración.
-            if (remainingTime[i] == 0)
+            if (pro[i].remainingTime == 0)
             {
                 continue;
             }
@@ -58,16 +62,16 @@ void roundRobin(struct Process pro[], int n, int quantum)
 
                 // Si el tiempo restante es menor o igual al quantum,
                 // el proceso se completará en esta iteración, así que actualiza el tiempo restante.
-                if (remainingTime[i] <= quantum)
+                if (pro[i].remainingTime <= quantum)
                 {
-                    time += remainingTime[i];
-                    remainingTime[i] = 0;
+                    time += pro[i].remainingTime;
+                    pro[i].remainingTime = 0;
 
                     // Registra el tiempo de finalización del proceso.
                     pro[i].exitTime = time;
 
                     // Calcula el tiempo de espera del proceso.
-                    pro[i].waitingTime = pro[i].exitTime - pro[i].arrivalTime - pro[i].brustTime;
+                    pro[i].waitingTime = pro[i].exitTime - pro[i].arrivalTime - pro[i].burstTime;
 
                     // Calcula los tiempos de espera y de respuesta promedio de todos los procesos.
                     totalWaitTime += pro[i].waitingTime;
@@ -79,7 +83,7 @@ void roundRobin(struct Process pro[], int n, int quantum)
                 else
                 {
                     time += quantum;
-                    remainingTime[i] -= quantum;
+                    pro[i].remainingTime -= quantum;
                 }
             }
 
@@ -110,7 +114,7 @@ void roundRobin(struct Process pro[], int n, int quantum)
     printf("\nProceso\t Tiempo de Llegada\t Tiempo de Ejecución\t Tiempo de Respuesta\t Tiempo de Espera\n");
     for (i = 0; i < n; i++)
     {
-        printf("%d\t\t %d\t\t\t %d\t\t\t %d\t\t\t %d\n", pro[i].id, pro[i].arrivalTime, pro[i].brustTime, pro[i].responseTime, pro[i].waitingTime);
+        printf("%d\t\t %d\t\t\t %d\t\t\t %d\t\t\t %d\n", pro[i].id, pro[i].arrivalTime, pro[i].burstTime, pro[i].responseTime, pro[i].waitingTime);
     }
     printf("\nTiempo de Respuesta Promedio = %.2f", avgResponseTime);
     printf("\nTiempo de Espera Promedio = %.2f", avgWaitTime);
@@ -130,7 +134,7 @@ int main()
         scanf("%d", &pro[i].arrivalTime);
 
         printf("Ingrese el tiempo de CPU para el Process %d: ", i + 1);
-        scanf("%d", &pro[i].brustTime);
+        scanf("%d", &pro[i].burstTime);
 
         pro[i].id = i + 1;
         pro[i].state = 0; // procesos no iniciados
