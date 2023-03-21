@@ -6,12 +6,14 @@ struct Process
     int id;
     int arrivalTime;
     int burstTime;
-    int state;
+    int state; //0 si no inicia, 1 si ya inició y -1 si está bloqueado
     int responseTime;
     int waitingTime;
     int exitTime;
-    int serviceTime;
     int remainingTime;
+    int turnaroundTime;
+    int numberInterruptions;
+    int timeInterrupt;
     int interruptLength[];
 };
 
@@ -47,12 +49,17 @@ void createProcess(struct Process pro[], int n, int type)
         pro[i].responseTime = -1;
         //Asignar el burstTime al reaminingTime
         pro[i].remainingTime = pro[i].burstTime;
+        //Asignar un estado no inciado
+        pro[i].state=0;
     
         // Inicializa el tiempo restante del proceso como su tiempo de ejecucion.
         if (i <= n1) //Procesos CPU bound (mas interrupiones de poco tiempo)
         {
             int n_itrp = rand() % 4; //Número de interrupciones aleatorio entre 4
             int itrp[n_itrp]; //Arreglo de interrupciones
+
+            //Se asigna el numero de interrupciones en numberInterruptions
+            pro[i].numberInterruptions = n_itrp;
 
             //Se asigna un valor aleatorio de tiempo a cada interrupcion
             for(int j=0; j<n_itrp; j++)
@@ -66,6 +73,9 @@ void createProcess(struct Process pro[], int n, int type)
             int n_itrp = rand() % 8 + 4; //Número de interrupciones aleatorio entre 8 y 4
             int itrp[n_itrp]; //Arreglo de interrupciones
 
+            //Se asigna el numero de interrupciones en numberInterruptions
+            pro[i].numberInterruptions = n_itrp;
+
             //Se asigna un valor aleatorio de tiempo a cada interrupcion
             for(int j=0; j<n_itrp; j++)
             {
@@ -73,6 +83,9 @@ void createProcess(struct Process pro[], int n, int type)
             }
             pro[i].interruptLength[n_itrp] = itrp; 
         }
+
+        //Se asigna el momento que ocurre la interrupción
+        pro[i].timeInterrupt = pro[i].burstTime/pro[i].numberInterruptions;
     }
 }
 
@@ -112,36 +125,28 @@ void quicksort(struct Process arr[], int low, int high) {
 void roundRobin(struct Process pro[], int n, int quantum)
 {
     int time = 0;
-    int i;
-    int remainingTime[n];
-    int flag, totalWaitTime = 0, totalResponseTime = 0, totalServiceTime;
+    int flag, totalWaitTime = 0, totalResponseTime = 0, totalTurnaroundTime = 0;
 
-    // Inicializa el tiempo restante del proceso como su tiempo de ejecucion.
-    for (i = 0; i < n; i++)
+    //Ejercutar el round robin hasta que todos los procesos hayan terminado
+    while(1)
     {
-        remainingTime[i] = pro[i].burstTime;
-    }
+        flag = 0; //Se mantiene 0 si todos los procesos terminan
 
-    // Ejecuta el Round Robin hasta que todos los procesos hayan terminado.
-    while (1)
-    {
-        flag = 0; //indica que no hay procesos que ejecutar
-
-        // Procesa todos los procesos uno por uno.
-        for (i = 0; i < n; i++)
+        //Transversar por cada proceso
+        for(int i=0; i<n; i++)
         {
-            // Si el proceso ya se completo, salta a la siguiente iteracion.
-            if (remainingTime[i] == 0)
+            // Si el proceso ya se completó, salta a la siguiente iteración.
+            if (pro[i].remainingTime == 0)
             {
                 continue;
             }
 
-            // Marca que al menos un proceso esta siendo procesado en esta iteracion.
+            // Marca que al menos un proceso está siendo procesado en esta iteración.
             flag = 1;
 
             // Si el tiempo de llegada del proceso es menor o igual al tiempo actual,
             // se procesa el proceso durante el quantum de tiempo y se actualiza el tiempo restante.
-            if (pro[i].arrivalTime <= time)
+            if (pro[i].arrivalTime <= time && pro[i].state != -1)
             {
                 // Marca que el proceso ya ha comenzado.
                 pro[i].state = 1;
@@ -154,49 +159,69 @@ void roundRobin(struct Process pro[], int n, int quantum)
                 }
 
                 // Si el tiempo restante es menor o igual al quantum,
-                // el proceso se completara en esta iteracion, asi que actualiza el tiempo restante.
-                if (remainingTime[i] <= quantum)
+                // el proceso se completará en esta iteración, así que actualiza el tiempo restante.
+                if (pro[i].remainingTime <= quantum)
                 {
-                    printf("Proceso %d: Tiempo %d - %d\n", pro[i].id, time, time + remainingTime[i]);
-                    time += remainingTime[i];
-                    remainingTime[i] = 0;
+                    printf("Proceso %d: Tiempo %d - %d\n", pro[i].id, time, time + pro[i].remainingTime);
+                    time += pro[i].remainingTime;
+                    pro[i].remainingTime = 0;
 
-                    // Registra el tiempo de finalizacion del proceso.
+                    // Registra el tiempo de finalización del proceso.
                     pro[i].exitTime = time;
-                    //Calcula el tiempo de servicio del proceso 
-                    pro[i].serviceTime = pro[i].exitTime - pro[i].arrivalTime;
-                    // Calcula el tiempo de espera del proceso.
-                    pro[i].waitingTime = pro[i].serviceTime - pro[i].burstTime;
-                    
 
+                    // Calcula el tiempo de espera del proceso.
+                    pro[i].waitingTime = pro[i].exitTime - pro[i].arrivalTime - pro[i].burstTime;
+
+                    //Calcula el tiempo de turnaround 
+                    pro[i].turnaroundTime = pro[i].exitTime - pro[i].arrivalTime;
+                    
                     // Calcula los tiempos de espera y de respuesta promedio de todos los procesos.
                     totalWaitTime += pro[i].waitingTime;
                     totalResponseTime += pro[i].responseTime;
-                    totalServiceTime += pro[i].serviceTime;
+                    totalTurnaroundTime += pro[i].turnaroundTime;
                 }
 
                 // Si el tiempo restante es mayor que el quantum,
-                // el proceso todavia no se ha completado, asi que se ejecuta durante el quantum.
+                // el proceso todavía no se ha completado, así que se ejecuta durante el quantum.
                 else
                 {
                     printf("Proceso %d: Tiempo %d - %d\n", pro[i].id, time, time + quantum); 
                     time += quantum;
-                    remainingTime[i] -= quantum;
+                    pro[i].remainingTime -= quantum;
                 }
             }
-
-            // Si el tiempo de llegada del proceso es mayor que el tiempo actual,
-            // se avanza el tiempo hasta el tiempo de llegada del proceso.
+            // Si el tiempo de llegada del proceso es mayor que el tiempo actual
             else
             {
-                time++;
-                i--;
+                //Si los procesos anteriores ya iniciaron y el que se encuentra ahora todavía no llega la cola de ready
+                if(i>0 && pro[i-1].state==1 && pro[i].state==0)
+                {
+                    i=-1;
+                }
+                else if(pro[i].state==-1) //Si ocurrió una interrupción
+                {
+                    for(int j=0; j<pro[i].numberInterruptions; j++)
+                    {
+                        if(pro[i].interruptLength[j]!=0)
+                        {
+                            time+=pro[i].interruptLength[j];
+                            pro[i].interruptLength[j]=0;
+                            pro[i].state = 1;
+                            break;
+                        }
+                    }
+                }
+                //Se avanza el tiempo hasta el tiempo de llegada del proceso.
+                else
+                {
+                    time++;
+                    i--;
+                } 
             }
         }
-
-        // Si ningun proceso se proceso en esta iteracion,
+        // Si ningún proceso se procesó en esta iteración,
         // significa que todos los procesos se han completado.
-        if (flag == 0)
+        if(flag==0)
         {
             break;
         }
@@ -208,23 +233,27 @@ void roundRobin(struct Process pro[], int n, int quantum)
     // Calcula el tiempo de espera promedio.
     float avgWaitTime = (float)totalWaitTime / (float)n;
 
-    //Calcula el índice de servicio
-    float serviceIndex = (float)totalResponseTime / (float)time;
+    //Calcula el turnaround time promedio
+    float avgTurnaroundTime = (float)totalTurnaroundTime /(float)n;
+
+    //Calcula el throughput o rendimiento
+    float throughputTime = (float)n/(float)time;
 
     // Imprime los resultados.
     printf("\nProceso\t Tiempo de Llegada\t Tiempo de Ejecución\t Tiempo de Respuesta\t Tiempo Final\t Tiempo de servicio\t Tiempo de Espera\t \n");
-    for (i = 0; i < n; i++)
+    for (int i = 0; i < n; i++)
     {
-        printf("%d\t\t %d\t\t\t %d\t\t\t %d\t\t\t %d\t\t %d\t\t\t %d\n", pro[i].id, pro[i].arrivalTime, pro[i].burstTime, pro[i].responseTime,pro[i].exitTime ,pro[i].serviceTime, pro[i].waitingTime);
+        printf("%d\t\t %d\t\t\t %d\t\t\t %d\t\t\t %d\t\t %d\n", pro[i].id, pro[i].arrivalTime, pro[i].burstTime, pro[i].responseTime,pro[i].exitTime , pro[i].waitingTime);
     }
     printf("\nTiempo de Respuesta Promedio = %.2f", avgResponseTime);
     printf("\nTiempo de Espera Promedio = %.2f", avgWaitTime);
-    printf("\nÍndice de servicio = %.2f \n", serviceIndex);
+    printf("\nTiempo de Turnaround Promedio = %.2f", avgTurnaroundTime);
+    printf("\nThroughtput = %.2f", throughputTime);
 }
 
 int main()
 {
-    int i, n, quantum;
+    int n, quantum;
 
     //Ingreso de datos: numero de procesos, el burst time. el arrival time de cada proceso y el quantum
     printf("Ingrese el número de proceso: ");
@@ -232,6 +261,7 @@ int main()
 
     struct Process pro[n];
 
+    /*
     for (i = 0; i < n; i++)
     {
         printf("Ingrese el tiempo de llegada para el proceso %d: ", i + 1);
@@ -244,15 +274,21 @@ int main()
         pro[i].state = 0; //Procesos no inicializados 
         pro[i].responseTime = -1;
     }
+    */
 
     printf("Ingrese el quantum para el algoritmo de round robin: ");
     scanf("%d", &quantum);
 
+    //Crear procesos
+    createProcess(pro, n, 1);
+
     //Ordenamiento del arreglo segun su tiempo de llegada
     quicksort(pro,0, n-1);
+
 
     printf("\nRound Robin Scheduler: \n");
     //Se realiza el scheduling
     roundRobin(pro, n, quantum);
 
     return 0;
+}
