@@ -16,8 +16,9 @@ struct Process
     int remainingTime;
     int numberInterruptions;
     int remainingItrTime; 
-    int durationInterupts[8];
-    int whenInterrupts[8];
+    int durationInterupts[50];
+    int whenInterrupts[50];
+    int type; //Si es CPU bound = 1  o I/O bound = 2 
 };
 
 //Funcion creacion de procesos 
@@ -43,12 +44,13 @@ void createProcess(struct Process pro[], int n, int condition)
 
     for(int i=0; i<n; i++) //Llena la informacion de cada proceso (uno a uno)
     {
+
         //Asignar el id
         pro[i].id = i+1;
         //Asignar un tiempo aleatorio del arrivalTime entre 1 y 10
         pro[i].arrivalTime = rand() % 10 + 1;
         //Para cada proceso de asigna un burst time aleatorio entre 10 y 50
-        pro[i].burstTime = rand() % 15 + 10;
+        pro[i].burstTime = rand() % (50-10+1) + 10;
         //Asignar -1 cuando no a inicializado el proceso
         pro[i].responseTime = -1;
         //Asignar remainingTime igual al burstTime
@@ -59,13 +61,16 @@ void createProcess(struct Process pro[], int n, int condition)
 
         if (n1 > 0 && i <= n1) //Procesos CPU bound (pocas interrupiones de mucho tiempo)
         {
-            int n_itrp = rand() % 4 + 1; //Número de interrupciones aleatorio entre 1 y 4
+            //Asignar el tipo de proceso
+            pro[i].type = 1;
+
+            int n_itrp = rand() % (25-15+1) + 15; //Número de interrupciones aleatorio entre 1 y 4
 
             pro[i].numberInterruptions = n_itrp; //Asignar numero interrupciones
 
             //Se asigna un valor aleatorio de tiempo a cada interrupcion
             for(int j=0; j<n_itrp; j++){
-                int duration = rand() % 6 + 3; //Entre 3 y 6
+                int duration = rand() % (30-15+1) + 15; //Entre 3 y 6
                 //agregarlas al arreglo de interrupciones
                 pro[i].durationInterupts[j] = duration;
             }
@@ -80,13 +85,16 @@ void createProcess(struct Process pro[], int n, int condition)
         }
         else if(i > n1) //Procesos I/O bound (muchas interrupciones de poco tiempo)
         {
-            int n_itrp = rand() % 8 + 4; //Número de interrupciones aleatorio entre 4 y 8
+            //Asignar el tipo de proceso
+            pro[i].type = 2;
+
+            int n_itrp = rand() % (50-25+1) + 25; //Número de interrupciones aleatorio entre 4 y 8
 
             pro[i].numberInterruptions = n_itrp; //Asignar numero interrupciones
 
             //Se asigna un valor aleatorio de tiempo a cada interrupcion
             for(int j=0; j<n_itrp; j++){
-                int duration = rand() % 3 + 1; //Entre 1 y 3
+                int duration = rand() % (15-5+1) + 5; //Entre 1 y 3
                 //agregarlas al arreglo de interrupciones
                 pro[i].durationInterupts[j] = duration;
             }
@@ -99,7 +107,8 @@ void createProcess(struct Process pro[], int n, int condition)
                 pro[i].whenInterrupts[j] = (j+1) * multiple;
             }
         }
-        else{
+        else
+        {
             printf("Error, asignar la razon de bounds\n");
         }
     }
@@ -311,7 +320,23 @@ void roundRobin(struct Process pro[], int n, int quantum)
     float avgTurnaroundTime = (float)totalTurnaroundTime /(float)n;
 
     //Calcula el throughput o rendimiento
-    float throughputTime = (float)n/(float)time;
+    int timeCPU=0, timeIO=0, contadorCPU=0, contadorIO=0;
+    for(int z=0; z<n; z++)
+    {
+        if(pro[z].type==1)
+        {
+            timeCPU+=pro[z].turnaroundTime;
+            contadorCPU+=1;
+        }
+        else
+        {
+            timeIO+=pro[z].turnaroundTime;
+            contadorIO+=1;
+        }
+    }
+
+
+    float throughputTime = ((float)contadorCPU/(float)timeCPU) + ((float)contadorIO/(float)timeIO);
 
     // Imprime los resultados.
     printf("\nProceso\t Tiempo de Llegada\t Tiempo de Ejecución\t Tiempo de Respuesta\t Tiempo Final\t Tiempo de Espera\t \n");
@@ -477,8 +502,24 @@ void FCFS(struct Process pro[], int n)
     //Calcula el turnaround time promedio
     float avgTurnaroundTime = (float)totalTurnaroundTime /(float)n;
 
-    //Calcula el throughput o rendimiento
-    float throughputTime = (float)n/(float)time;
+   //Calcula el throughput o rendimiento
+    int timeCPU=0, timeIO=0, contadorCPU=0, contadorIO=0;
+    for(int z=0; z<n; z++)
+    {
+        if(pro[z].type==1)
+        {
+            timeCPU+=pro[z].turnaroundTime;
+            contadorCPU+=1;
+        }
+        else
+        {
+            timeIO+=pro[z].turnaroundTime;
+            contadorIO+=1;
+        }
+    }
+
+
+    float throughputTime = ((float)contadorCPU/(float)timeCPU) + ((float)contadorIO/(float)timeIO);
 
     // Imprime los resultados.
     printf("\nProceso\t Tiempo de Llegada\t Tiempo de Ejecución\t Tiempo de Respuesta\t Tiempo Final\t Tiempo de Espera\t \n");
@@ -655,7 +696,23 @@ void SJF(struct Process pro[], int n)
     float avgTurnaroundTime = (float)totalTurnaroundTime /(float)n;
 
     //Calcula el throughput o rendimiento
-    float throughputTime = (float)n/(float)time;
+    int timeCPU=0, timeIO=0, contadorCPU=0, contadorIO=0;
+    for(int z=0; z<n; z++)
+    {
+        if(pro[z].type==1)
+        {
+            timeCPU+=pro[z].turnaroundTime;
+            contadorCPU+=1;
+        }
+        else
+        {
+            timeIO+=pro[z].turnaroundTime;
+            contadorIO+=1;
+        }
+    }
+
+
+    float throughputTime = ((float)contadorCPU/(float)timeCPU) + ((float)contadorIO/(float)timeIO);
 
     // Imprime los resultados.
     printf("\nProceso\t Tiempo de Llegada\t Tiempo de Ejecución\t Tiempo de Respuesta\t Tiempo Final\t Tiempo de Espera\t \n");
