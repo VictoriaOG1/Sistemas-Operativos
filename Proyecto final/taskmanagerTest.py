@@ -1,44 +1,33 @@
 import sys
 import psutil
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QGroupBox, QVBoxLayout, QLabel, QStyle, QHBoxLayout, QTableWidgetItem, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QGroupBox, QVBoxLayout, QLabel, QStyle, QHBoxLayout, QTableWidgetItem, QTableWidget
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 import pyqtgraph as pg
 
 
-class CPUMonitorThread(QThread):
-    cpu_data_updated = pyqtSignal(list)
+class MonitorThreads(QThread):
+    cpu_data_updated = pyqtSignal(float)
+    mem_data_updated = pyqtSignal(float)
+    storage_data_updated = pyqtSignal(float, float)
+    process_data_updated = pyqtSignal(list)
+    network_data_updated = pyqtSignal(float, float)
 
     def run(self):
         while True:
-            cpu_usage = psutil.cpu_percent() 
-            self.cpu_data_updated.emit([cpu_usage])
-            self.msleep(1000)
-    
+            # Update CPU data
+            cpu_percent = psutil.cpu_percent()
+            self.cpu_data_updated.emit(cpu_percent)
 
-class MemoryMonitorThread(QThread):
-    mem_data_updated = pyqtSignal(list)
-
-    def run(self):
-        while True:
+            # Update memory data
             mem_percent = psutil.virtual_memory().percent
-            self.mem_data_updated.emit([mem_percent])
-            self.msleep(1000)
+            self.mem_data_updated.emit(mem_percent)
 
-class StorageMonitorThread(QThread):
-    storage_data_updated = pyqtSignal(list)
-
-    def run(self):
-        while True:
+            # Update storage data
             disk_usage = psutil.disk_usage('/')
             disk_io = psutil.disk_io_counters()
-            self.storage_data_updated.emit([disk_usage.percent, disk_io.write_bytes/10000000, disk_io.read_bytes /10000000])
-            self.msleep(1000)
+            self.storage_data_updated.emit(disk_usage.percent, disk_io.write_bytes / 10000000, disk_io.read_bytes / 10000000)
 
-class ProcessMonitorThread(QThread):
-    process_data_updated = pyqtSignal(list)
-
-    def run(self):
-        while True:
+            # Update process data
             process_list = []
             for process in psutil.process_iter():
                 try:
@@ -51,6 +40,13 @@ class ProcessMonitorThread(QThread):
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     pass
             self.process_data_updated.emit(process_list)
+
+            # Update network data
+            net_io = psutil.net_io_counters()
+            upload_speed = net_io.bytes_sent / 1024
+            download_speed = net_io.bytes_recv / 1024
+            self.network_data_updated.emit(upload_speed, download_speed)
+
             self.msleep(1000)
 
 
@@ -64,7 +60,7 @@ class CPUUsageGraph(pg.PlotWidget):
         self.cpu_data = [0]
 
     def update_data(self, data):
-        self.cpu_data.append(data[0])
+        self.cpu_data.append(data)
         self.cpu_curve.setData(self.cpu_data)
 
 
@@ -78,8 +74,9 @@ class MemoryUsageGraph(pg.PlotWidget):
         self.mem_data = [0]
 
     def update_data(self, data):
-        self.mem_data.append(data[0])
+        self.mem_data.append(data)
         self.mem_curve.setData(self.mem_data)
+
 
 class StorageUsageGraph(pg.PlotWidget):
     def __init__(self):
@@ -93,24 +90,20 @@ class StorageUsageGraph(pg.PlotWidget):
         self.read_data = [0]
 
     def update_data(self, data):
-        self.write_data.append(data[0])
-        self.read_data.append(data[1])
-        self.write_curve.setData(self.write_data)
-        self.read_curve.setData(self.read_data)
+            write_bytes, read_bytes = data
+            self.write_data.append(write_bytes)
+            self.read_data.append(read_bytes)
+            self.write_curve.setData(self.write_data)
+            self.read_curve.setData(self.read_data)
 
-class ProcessUsageTable(pg.TableWidget):
+
+class ProcessUsageTable(QTableWidget):
     def __init__(self):
-        super().__init__(sortable=True, editable=False)
-        self.verticalHeader().setVisible(False)
-        self.setColumnWidth(0, 200)
-        self.setColumnWidth(1, 100)
-        self.setColumnWidth(2, 100)
-        self.setColumnWidth(3, 100)
+        super().__init__()
+        self.setColumnCount(4)
         self.setHorizontalHeaderLabels(['Name', 'PID', 'Status', 'Memory Usage (MB)'])
-        self.setData([])
 
     def setData(self, data):
-        self.clearContents()
         self.setRowCount(len(data))
         for i, (name, pid, status, memory_usage) in enumerate(data):
             self.setItem(i, 0, QTableWidgetItem(name))
@@ -119,70 +112,158 @@ class ProcessUsageTable(pg.TableWidget):
             self.setItem(i, 3, QTableWidgetItem(f'{memory_usage:.2f}'))
         self.resizeColumnsToContents()
 
+
+class NetworkUsageGraph(pg.PlotWidget):
+    def __init__(self):
+        super().__init__(background=(50, 50, 50))
+
+        self.setTitle("Network Upload/Download")
+        self.showGrid(x=True, y=True)
+        self.setLabel('left', 'Speed (KB/s)')
+        self.setLabel('bottom', 'Time')
+
+        self.upload_curve = self.plot(pen='r')
+        self.download_curve = self.plot(pen='b')
+
+        self.upload_data = [0]
+        self.download_data = [0]
+
+    def update_data(self, data):
+        upload_speed, download_speed = data
+        self.upload_data.append(upload_speed)
+        self.download_data.append(download_speed)
+        self.upload_curve.setData(self.upload_data)
+        self.download_curve.setData(self.download_data)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Task Manager')
-        self.setGeometry(100, 100, 800, 600)
-        self.setup_ui()
 
-    def setup_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
+        # Set window title and size
+        self.setWindowTitle('System Monitor')
+        self.setFixedSize(1700, 600)
 
-        # CPU Usage
-        cpu_group_box = QGroupBox('CPU Usage')
-        cpu_layout = QVBoxLayout()
-        cpu_group_box.setLayout(cpu_layout)
+        # Create CPU usage widget
         self.cpu_usage_graph = CPUUsageGraph()
-        cpu_layout.addWidget(self.cpu_usage_graph)
-        main_layout.addWidget(cpu_group_box)
+        self.cpu_usage_label = QLabel(self)
+        self.cpu_usage_label.setAlignment(Qt.AlignCenter)
+        self.cpu_usage_label.setText('0%')
+        self.cpu_usage_label.setStyleSheet(
+            'color: #fff; background-color: #4CAF50; border-radius: 10px; font-weight: bold; font-size: 16pt; padding: 10px')
 
-        # Memory Usage
-        memory_group_box = QGroupBox('Memory Usage')
-        memory_layout = QVBoxLayout()
-        memory_group_box.setLayout(memory_layout)
-        self.memory_usage_graph = MemoryUsageGraph()
-        memory_layout.addWidget(self.memory_usage_graph)
-        main_layout.addWidget(memory_group_box)
+        # Create memory usage widget
+        self.mem_usage_graph = MemoryUsageGraph()
+        self.mem_usage_label = QLabel(self)
+        self.mem_usage_label.setAlignment(Qt.AlignCenter)
+        self.mem_usage_label.setText('0%')
+        self.mem_usage_label.setStyleSheet(
+            'color: #fff; background-color: #2196F3; border-radius: 10px; font-weight: bold; font-size: 16pt; padding: 10px')
 
-        # Storage Usage
-        storage_group_box = QGroupBox('Storage Usage')
-        storage_layout = QVBoxLayout()
-        storage_group_box.setLayout(storage_layout)
+        # Create storage usage widget
         self.storage_usage_graph = StorageUsageGraph()
-        storage_layout.addWidget(self.storage_usage_graph)
-        main_layout.addWidget(storage_group_box)
+        self.storage_usage_label = QLabel(self)
+        self.storage_usage_label.setAlignment(Qt.AlignCenter)
+        self.storage_usage_label.setText('Write: 0B  Read 0B')
+        self.storage_usage_label.setStyleSheet(
+            'color: #fff; background-color: #FFC107; border-radius: 10px; font-weight: bold; font-size: 16pt; padding: 10px')
 
-        # Process Usage
-        process_group_box = QGroupBox('Process Usage')
-        process_layout = QVBoxLayout()
-        process_group_box.setLayout(process_layout)
+        # Create processes table widget
         self.process_usage_table = ProcessUsageTable()
-        process_layout.addWidget(self.process_usage_table)
-        main_layout.addWidget(process_group_box)
 
-        self.show()
+        # Create network usage widget
+        self.network_usage_graph = NetworkUsageGraph()
 
-        # Start monitoring threads
-        self.cpu_monitor_thread = CPUMonitorThread()
-        self.cpu_monitor_thread.cpu_data_updated.connect(self.cpu_usage_graph.update_data)
-        self.cpu_monitor_thread.start()
+        # Create layout for CPU and memory widgets
+        left_layout = QGridLayout()
+        left_layout.addWidget(self.cpu_usage_graph, 0, 0)
+        left_layout.addWidget(self.cpu_usage_label, 1, 0)
+        left_layout.addWidget(self.mem_usage_graph, 2, 0)
+        left_layout.addWidget(self.mem_usage_label, 3, 0)
 
-        self.memory_monitor_thread = MemoryMonitorThread()
-        self.memory_monitor_thread.mem_data_updated.connect(self.memory_usage_graph.update_data)
-        self.memory_monitor_thread.start()
+        # Create layout for storage widget
+        center_layout = QGridLayout()
+        center_layout.addWidget(self.storage_usage_graph, 0, 0)
+        center_layout.addWidget(self.storage_usage_label, 1, 0)
+        center_layout.addWidget(self.network_usage_graph, 2, 0)
 
-        self.storage_monitor_thread = StorageMonitorThread()
-        self.storage_monitor_thread.storage_data_updated.connect(self.storage_usage_graph.update_data)
-        self.storage_monitor_thread.start()
+        # Create layout for network widget
+        right_layout = QGridLayout()
+        right_layout.addWidget(self.process_usage_table, 0, 0)
 
-        self.process_monitor_thread = ProcessMonitorThread()
-        self.process_monitor_thread.process_data_updated.connect(self.process_usage_table.setData)
-        self.process_monitor_thread.start()
+        # Create central widget and add left and right layouts
+        central_widget = QGroupBox(self)
+        layout = QHBoxLayout(central_widget)
+        layout.addLayout(left_layout)
+        layout.addLayout(center_layout)
+        layout.addLayout(right_layout)
+        self.setCentralWidget(central_widget)
 
+        self.monitor_threads = MonitorThreads()
+        self.monitor_threads.cpu_data_updated.connect(self.cpu_usage_graph.update_data)
+        self.monitor_threads.cpu_data_updated.connect(lambda x: self.cpu_usage_label.setText(f'{x[-1]:.2f}%'))
+
+        self.monitor_threads.mem_data_updated.connect(self.mem_usage_graph.update_data)
+        self.monitor_threads.mem_data_updated.connect(lambda x: self.mem_usage_label.setText(f'{x[-1]:.2f}%'))
+
+        self.monitor_threads.storage_data_updated.connect(self.storage_usage_graph.update_data)
+        self.monitor_threads.storage_data_updated.connect(lambda x: self.storage_usage_label.setText(f'Write: {x[1]:.2f}B  Read: {x[2]:.2f}B'))
+
+        self.monitor_threads.process_data_updated.connect(self.process_usage_table.setData)
+        self.monitor_threads.network_data_updated.connect(self.network_usage_graph.update_data)
+
+        self.monitor_threads.start()
+
+        # Update widgets every second
+        self.timer = QTimer(self)
+        self.timer.setInterval(1000)
+        self.timer.timeout.connect(self.update_widgets)
+        self.timer.start()
+
+        # Set stylesheet
+        self.setStyleSheet('''
+           QMainWindow {
+              background-color: #222;
+           }
+        ''')
+
+    def update_widgets(self):
+        # Update CPU usage
+        cpu_percent = psutil.cpu_percent()
+        self.cpu_usage_graph.update_data([cpu_percent])
+        self.cpu_usage_label.setText(f'{cpu_percent:.2f}%')
+
+        # Update memory usage
+        mem_percent = psutil.virtual_memory().percent
+        self.mem_usage_graph.update_data([mem_percent])
+        self.mem_usage_label.setText(f'{mem_percent:.2f}%')
+
+        # Update disk I/O counters
+        disk_io_counters = psutil.disk_io_counters()
+        write_bytes = disk_io_counters.write_bytes / 1000000000  # Convert to GB
+        read_bytes = disk_io_counters.read_bytes / 1000000000  # Convert to GB
+        self.storage_usage_graph.update_data([write_bytes, read_bytes])
+        self.storage_usage_label.setText(f'Write: {write_bytes:.2f}GB  Read: {read_bytes:.2f}GB')
+
+        # Update process data
+        process_list = []
+        for process in psutil.process_iter():
+            try:
+                name = process.name()
+                pid = process.pid
+                status = process.status()
+                memory_info = process.memory_info()
+                memory_usage = memory_info.rss / (1024 * 1024)  # Convert to MB
+                process_list.append((name, pid, status, memory_usage))
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        self.process_usage_table.setData(process_list)
+
+        # Update network data
+        net_io = psutil.net_io_counters()
+        upload_speed = net_io.bytes_sent / 1024  # Convert to KB
+        download_speed = net_io.bytes_recv / 1024  # Convert to KB
+        self.network_usage_graph.update_data([upload_speed, download_speed])
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
