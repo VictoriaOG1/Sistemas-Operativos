@@ -181,7 +181,7 @@ class MainWindow(QMainWindow):
         self.network_usage_label = QLabel(self)
         self.network_usage_label.setAlignment(Qt.AlignCenter)
         self.network_usage_label.setText('Write: 0B  Read 0B')
-        self.network_usage_label.setStyleSheet('color: #fff; background-color: #FFC107; border-radius: 10px; font-weight: bold; font-size: 16pt; padding: 10px')
+        self.network_usage_label.setStyleSheet('color: #fff; background-color: #FF6961; border-radius: 10px; font-weight: bold; font-size: 16pt; padding: 10px')
         
         # Create layout for CPU and memory widgets
         left_layout = QGridLayout()
@@ -278,8 +278,8 @@ class MainWindow(QMainWindow):
 
         #Update network data
         net_io = psutil.net_io_counters()
-        upload_speed = float(net_io.bytes_sent / 1024)
-        download_speed = float(net_io.bytes_recv / 1024)
+        upload_speed = net_io.bytes_sent / 1024
+        download_speed = net_io.bytes_recv / 1024
         self.network_usage_graph.update_data([upload_speed, download_speed])
 
 
